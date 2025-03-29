@@ -1,0 +1,24 @@
+{
+  "name": "ndt",
+  "version": "1.0.0",
+  "description": "Node Deepgram Transcription",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fairybow/NDT.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/fairybow/NDT/issues"
+  },
+  "homepage": "https://github.com/fairybow/NDT#readme",
+  "dependencies": {
+    "@deepgram/sdk": "^3.11.3",
+    "dotenv": "^16.4.7"
+  }
+}
