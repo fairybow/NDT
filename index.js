@@ -21,7 +21,7 @@ if (!apiKey) {
 const deepgram = createClient(apiKey);
 console.log('Deepgram Instance: ', deepgram);
 
-function getAudioFiles(inputDir, extensions = ['.wav']) {
+function audioFilePaths(inputDir, extensions = ['.wav']) {
     try {
         // Check if directory exists
         if (!fs.existsSync(inputDir)) {
@@ -29,17 +29,15 @@ function getAudioFiles(inputDir, extensions = ['.wav']) {
             return [];
         }
 
-        // Get all files in directory
-        const files = fs.readdirSync(inputDir);
-
-        // Filter for audio files based on extensions
-        const audioFiles = files.filter((file) => {
+        // Get all files in directory and filter for audio files based on
+        // extensions
+        const audioFilePaths = fs.readdirSync(inputDir).filter((file) => {
             const extension = path.extname(file).toLowerCase();
             return extensions.includes(extension);
         });
 
         // Return full paths
-        return audioFiles.map((file) => path.join(inputDir, file));
+        return audioFilePaths.map((file) => path.join(inputDir, file));
     } catch (error) {
         console.error('Error getting audio files:', error);
         return [];
@@ -64,47 +62,31 @@ async function transcribeFile(filePath, options) {
 }
 
 function saveTranscription(filePath, transcription, outputDir) {
-    // Extract just the filename from the path
-    const fileName = path.basename(filePath);
-
-    // Create output directory if it doesn't exist
-    if (!fs.existsSync(outputDir)) {
-        fs.mkdirSync(outputDir, { recursive: true });
+    try {
+        const fileName = path.basename(filePath);
+        const outputPath = path.join(outputDir, `${fileName}.json`);
+        fs.writeFileSync(outputPath, JSON.stringify(transcription, null, 2));
+        console.log(`Transcription saved to: ${outputPath}`);
+    } catch (error) {
+        console.error(`Error saving transcription for ${filePath}:`, error);
+        throw error; // Re-throw if you want calling functions to handle it
     }
-
-    // Create output paths using the filename in the output directory
-    const outputPath = path.join(outputDir, `${fileName}.json`);
-    fs.writeFileSync(outputPath, JSON.stringify(transcription, null, 2));
-    console.log(`Transcription saved to: ${outputPath}`);
-
-    // Also save just the transcript text for convenience
-    const textPath = path.join(outputDir, `${fileName}.txt`);
-
-    // Get the transcript from the result (adjust this path as needed based on Deepgram's response structure)
-    const transcriptText =
-        transcription.results?.channels[0]?.alternatives[0]?.transcript || '';
-    fs.writeFileSync(textPath, transcriptText);
-    console.log(`Plain text transcript saved to: ${textPath}`);
 }
 
-async function transcribeDirFiles(
-    inputDir,
-    outputDir,
-    transcriptionOptions = {}
-) {
-    const audioFiles = getAudioFiles(inputDir);
+async function transcribeFiles(inputDir, outputDir, options = {}) {
+    const filePaths = audioFilePaths(inputDir);
 
-    if (audioFiles.length === 0) {
+    if (filePaths.length === 0) {
         console.log('No audio files found.');
-        return;
+        return false;
     }
 
-    console.log(`Found ${audioFiles.length} audio files to process.`);
+    console.log(`Found ${filePaths.length} audio files to process.`);
 
     // Process files sequentially to avoid overwhelming the API
-    for (const filePath of audioFiles) {
+    for (const filePath of filePaths) {
         try {
-            const result = await transcribeFile(filePath, transcriptionOptions);
+            const result = await transcribeFile(filePath, options);
             saveTranscription(filePath, result, outputDir);
         } catch (error) {
             console.error(`Failed to process ${filePath}:`, error);
@@ -113,6 +95,7 @@ async function transcribeDirFiles(
     }
 
     console.log('All files processed.');
+    return true;
 }
 
 async function main() {
@@ -120,7 +103,9 @@ async function main() {
     const args = process.argv.slice(2);
     if (args.length === 0) {
         console.error('Please provide a directory path as an argument');
-        console.error('Usage: node index.js <directoryPath> <outputPath>');
+        console.error(
+            'Usage: node index.js <directoryPath> <optional: outputPath>'
+        );
         process.exit(1);
     }
 
@@ -128,8 +113,14 @@ async function main() {
     const outputDir = args.length > 1 ? args[1] : inputDir;
 
     // Create output directory if it doesn't exist
-    if (!fs.existsSync(outputDir)) {
-        fs.mkdirSync(outputDir, { recursive: true });
+    // Add error handling for directory creation
+    try {
+        if (!fs.existsSync(outputDir)) {
+            fs.mkdirSync(outputDir, { recursive: true });
+        }
+    } catch (error) {
+        console.error(`Failed to create output directory ${outputDir}:`, error);
+        process.exit(1);
     }
 
     // Need to figure out if audio input is single or dual channel.
@@ -143,14 +134,21 @@ async function main() {
     // Utterances generates timestamps for significant pauses in speech,
     // breaking the speech into logical segments.
 
-    const transcriptionOptions = {
+    // Can manipulate with args later
+    const options = {
         diarize: true,
         model: 'nova-2',
         smart_format: true,
         utterances: true,
+        ner: true,
     };
 
-    await transcribeDirFiles(inputDir, outputDir, transcriptionOptions);
+    const processed = await transcribeFiles(inputDir, outputDir, options);
+
+    if (!processed) {
+        console.error('No audio files were found for processing. Exiting.');
+        process.exit(0);
+    }
 }
 
 // ----------
