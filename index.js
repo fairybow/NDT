@@ -6,6 +6,7 @@ require('dotenv').config();
 
 // Import required modules
 const { createClient } = require('@deepgram/sdk');
+const { PostProcessing } = require('./postprocessing.js');
 const fs = require('fs');
 const path = require('path');
 const util = require('util');
@@ -20,6 +21,8 @@ if (!apiKey) {
 
 const deepgram = createClient(apiKey);
 console.log('Deepgram Instance: ', deepgram);
+
+// ----------
 
 function audioFilePaths(inputDir, extensions = ['.wav']) {
     try {
@@ -65,7 +68,10 @@ function saveTranscription(filePath, transcription, outputDir) {
     try {
         const fileName = path.basename(filePath);
         const outputPath = path.join(outputDir, `${fileName}.json`);
-        fs.writeFileSync(outputPath, JSON.stringify(transcription, null, 2));
+
+        const json = PostProcessing.jsonScript(transcription);
+        fs.writeFileSync(outputPath, JSON.stringify(json, null, 2));
+
         console.log(`Transcription saved to: ${outputPath}`);
     } catch (error) {
         console.error(`Error saving transcription for ${filePath}:`, error);
@@ -113,7 +119,6 @@ async function main() {
     const outputDir = args.length > 1 ? args[1] : inputDir;
 
     // Create output directory if it doesn't exist
-    // Add error handling for directory creation
     try {
         if (!fs.existsSync(outputDir)) {
             fs.mkdirSync(outputDir, { recursive: true });
@@ -123,10 +128,10 @@ async function main() {
         process.exit(1);
     }
 
-    // Need to figure out if audio input is single or dual channel.
-    // We only need to diarize if audio is mono.
-    // However, we may want to convert all stereo to mono and diarize all.
-    // Currently, our test files are all 8.000 kHz, mono, 16 bit.
+    // Need to figure out if audio input is single or dual channel. We only need
+    // to diarize if audio is mono. However, we may want to convert all stereo
+    // to mono and diarize all. Currently, our test files are all 8.000 kHz,
+    // mono, 16 bit.
 
     // Smart format is a feature that: auto capitalizes; adds punctuation;
     // formats numbers, currencies, and dates; and removes filler words ("um").
@@ -136,11 +141,11 @@ async function main() {
 
     // Can manipulate with args later
     const options = {
-        diarize: true,
+        diarize: true, // Required for postprocessing.js
         model: 'nova-2',
         smart_format: true,
-        utterances: true,
-        ner: true,
+        utterances: true
+        //ner: true,
     };
 
     const processed = await transcribeFiles(inputDir, outputDir, options);
