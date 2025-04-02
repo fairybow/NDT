@@ -64,15 +64,35 @@ async function transcribeFile(filePath, options) {
     return result;
 }
 
+function jsonString(javascriptValue) {
+    return JSON.stringify(javascriptValue, null, 2);
+}
+
 function saveTranscription(filePath, transcription, outputDir) {
     try {
         const fileName = path.basename(filePath);
-        const outputPath = path.join(outputDir, `${fileName}.json`);
 
-        const json = PostProcessing.jsonScript(transcription);
-        fs.writeFileSync(outputPath, JSON.stringify(json, null, 2));
+        const rawPath = path.join(outputDir, `${fileName}.raw.json`);
+        const postProcessedTextPath = path.join(
+            outputDir,
+            `${fileName}.post.txt`
+        );
+        const postProcessedJsonPath = path.join(
+            outputDir,
+            `${fileName}.post.json`
+        );
 
-        console.log(`Transcription saved to: ${outputPath}`);
+        const rawJson = jsonString(transcription);
+        const postProcessedText = PostProcessing.textScript(transcription);
+        const postProcessedJson = jsonString(
+            PostProcessing.jsonScript(transcription)
+        );
+
+        fs.writeFileSync(rawPath, rawJson);
+        fs.writeFileSync(postProcessedTextPath, postProcessedText);
+        fs.writeFileSync(postProcessedJsonPath, postProcessedJson);
+
+        console.log(`Transcriptions saved to: ${outputDir}`);
     } catch (error) {
         console.error(`Error saving transcription for ${filePath}:`, error);
         throw error; // Re-throw if you want calling functions to handle it

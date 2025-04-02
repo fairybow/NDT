@@ -16,7 +16,7 @@ function formatTime(seconds) {
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${Math.floor(seconds).toString().padStart(2, '0')}`;
 }
 
-function script(data) {
+function textScript(data) {
     // Check if we have valid data to process
     if (!data?.results?.channels || !Array.isArray(data.results.channels)) {
         return '';
@@ -120,7 +120,7 @@ function jsonScript(data) {
 
 module.exports = {
     PostProcessing: {
-        script,
+        textScript,
         jsonScript
     }
 };
