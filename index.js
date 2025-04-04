@@ -165,6 +165,7 @@ async function main() {
         model: 'nova-2',
         smart_format: true,
         utterances: true
+        //language: 'multi' // <- didn't do so hot lol
         //ner: true,
     };
 
