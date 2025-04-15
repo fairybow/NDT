@@ -162,11 +162,10 @@ async function main() {
     // Can manipulate with args later
     const options = {
         diarize: true, // Required for postprocessing.js
-        model: 'nova-2',
+        model: 'nova-3',
         smart_format: true,
-        utterances: true
-        //language: 'multi' // <- didn't do so hot lol
-        //ner: true,
+        utterances: true,
+        language: 'multi' // <- didn't do so hot lol
     };
 
     const processed = await transcribeFiles(inputDir, outputDir, options);
