@@ -6,7 +6,7 @@ require('dotenv').config();
 
 // Import required modules
 const { createClient } = require('@deepgram/sdk');
-const { PostProcessing } = require('./postprocessing.js');
+const { PostProcess } = require('./postprocessing.js');
 const fs = require('fs');
 const path = require('path');
 const util = require('util');
@@ -73,23 +73,21 @@ function saveTranscription(filePath, transcription, outputDir) {
         const fileName = path.basename(filePath);
 
         const rawPath = path.join(outputDir, `${fileName}.raw.json`);
-        const postProcessedTextPath = path.join(
-            outputDir,
-            `${fileName}.post.txt`
-        );
+        // const postProcessedTextPath = path.join(
+        //     outputDir,
+        //     `${fileName}.post.txt`
+        // );
         const postProcessedJsonPath = path.join(
             outputDir,
             `${fileName}.post.json`
         );
 
         const rawJson = jsonString(transcription);
-        const postProcessedText = PostProcessing.textScript(transcription);
-        const postProcessedJson = jsonString(
-            PostProcessing.jsonScript(transcription)
-        );
+        // const postProcessedText = PostProcessing.textScript(transcription);
+        const postProcessedJson = jsonString(PostProcess.json(transcription));
 
         fs.writeFileSync(rawPath, rawJson);
-        fs.writeFileSync(postProcessedTextPath, postProcessedText);
+        // fs.writeFileSync(postProcessedTextPath, postProcessedText);
         fs.writeFileSync(postProcessedJsonPath, postProcessedJson);
 
         console.log(`Transcriptions saved to: ${outputDir}`);
