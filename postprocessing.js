@@ -9,6 +9,65 @@ function timestamp(seconds) {
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${Math.floor(seconds).toString().padStart(2, '0')}`;
 }
 
+function addChannelToParagraph(paragraph, channel) {
+    return {
+        ...paragraph,
+        channel
+    };
+}
+
+function jsonScriptFromParagraphs(data) {
+    // Check if we have valid data to process
+    if (!data?.results?.channels || !Array.isArray(data.results.channels)) {
+        return { results: [] };
+    }
+
+    // Combine the paragraphs across channels and sort them by the time they
+    // were spoken
+    const nchannels = data.results.channels.length;
+    let joinedParagraphs = [];
+
+    for (let i = 0; i < nchannels; i++) {
+        const channel = data.results.channels[i];
+        const paragraphs =
+            channel?.alternatives?.[0]?.paragraphs?.paragraphs || [];
+
+        // Add channel info to each paragraph
+        const paragraphsWithChannel = paragraphs.map((p) =>
+            addChannelToParagraph(p, i)
+        );
+        joinedParagraphs = joinedParagraphs.concat(paragraphsWithChannel);
+    }
+
+    // Sort paragraphs by start time
+    joinedParagraphs.sort((a, b) => a.start - b.start);
+
+    // If there are multiple speakers in each channel, give them a unique ID
+    const speakerId = new Map(); // key = "channel_speakerId"
+    joinedParagraphs.forEach((p) => {
+        const key = `${p.channel}_${p.speaker}`;
+        if (!speakerId.has(key)) {
+            speakerId.set(key, speakerId.size);
+        }
+    });
+
+    // Create JSON format
+    const results = joinedParagraphs.map((p) => {
+        const speaker = speakerId.get(`${p.channel}_${p.speaker}`);
+        // Join all sentences in the paragraph
+        const content = p.sentences.map((s) => s.text).join(' ');
+
+        return {
+            Timestamp: timestamp(p.start),
+            Role: `Speaker ${speaker}`,
+            Content: content,
+            EndOfTurn: true
+        };
+    });
+
+    return { results };
+}
+
 function json(data) {
     // Check if we have valid data to process
     if (!data?.results) {
@@ -63,13 +122,6 @@ module.exports = {
 };
 
 /*
-function addChannelToParagraph(paragraph, channel) {
-    return {
-        ...paragraph,
-        channel
-    };
-}
-
 function textScript(data) {
     // Check if we have valid data to process
     if (!data?.results?.channels || !Array.isArray(data.results.channels)) {
@@ -119,57 +171,5 @@ function textScript(data) {
     });
 
     return result;
-}
-
-// The original function, renamed to be used as a fallback
-function jsonScriptFromParagraphs(data) {
-    // Check if we have valid data to process
-    if (!data?.results?.channels || !Array.isArray(data.results.channels)) {
-        return { results: [] };
-    }
-
-    // Combine the paragraphs across channels and sort them by the time they
-    // were spoken
-    const nchannels = data.results.channels.length;
-    let joinedParagraphs = [];
-
-    for (let i = 0; i < nchannels; i++) {
-        const channel = data.results.channels[i];
-        const paragraphs =
-            channel?.alternatives?.[0]?.paragraphs?.paragraphs || [];
-
-        // Add channel info to each paragraph
-        const paragraphsWithChannel = paragraphs.map((p) =>
-            addChannelToParagraph(p, i)
-        );
-        joinedParagraphs = joinedParagraphs.concat(paragraphsWithChannel);
-    }
-
-    // Sort paragraphs by start time
-    joinedParagraphs.sort((a, b) => a.start - b.start);
-
-    // If there are multiple speakers in each channel, give them a unique ID
-    const speakerId = new Map(); // key = "channel_speakerId"
-    joinedParagraphs.forEach((p) => {
-        const key = `${p.channel}_${p.speaker}`;
-        if (!speakerId.has(key)) {
-            speakerId.set(key, speakerId.size);
-        }
-    });
-
-    // Create JSON format
-    const results = joinedParagraphs.map((p) => {
-        const speaker = speakerId.get(`${p.channel}_${p.speaker}`);
-        // Join all sentences in the paragraph
-        const content = p.sentences.map((s) => s.text).join(' ');
-
-        return {
-            timestamp: formatTime(p.start),
-            role: `Speaker ${speaker}`,
-            content
-        };
-    });
-
-    return { results };
 }
 */
