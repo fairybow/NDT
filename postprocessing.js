@@ -1,5 +1,75 @@
 // https://github.com/orgs/deepgram/discussions/491#discussioncomment-7857447
 
+/**
+ * Determines if an utterance represents the end of a speaker's turn
+ * based on textual features.
+ *
+ * @param {string} text - The utterance text
+ * @return {boolean} - Whether this utterance likely represents an end of turn
+ */
+function determineEOT(text) {
+    if (!text || text.trim().length === 0) return true;
+
+    // 1. Check for terminal punctuation
+    const endsWithTerminalPunctuation = /[.!?][\s"']*$/.test(text.trim());
+
+    // 2. Check for incomplete phrases/sentences (e.g., trailing off)
+    const endsWithEllipsis = /\.{3}$|…$/.test(text.trim());
+
+    // 3. Check for phrases that suggest continuation
+    const continuationPhrases = [
+        'um',
+        'uh',
+        'like',
+        'you know',
+        'i mean',
+        'so',
+        'and then',
+        'but',
+        'or',
+        'because',
+        'however',
+        'although',
+        'therefore'
+    ];
+
+    // Check if the text ends with any continuation phrase
+    const endsWithContinuationPhrase = continuationPhrases.some((phrase) =>
+        new RegExp(`${phrase}[,\\s]*$`, 'i').test(text.trim())
+    );
+
+    // 4. Check if the text appears to be a question without a question mark
+    const questionStarters = [
+        'what',
+        'who',
+        'where',
+        'when',
+        'why',
+        'how',
+        'is',
+        'are',
+        'do',
+        'does',
+        'did',
+        'can',
+        'could',
+        'would',
+        'should'
+    ];
+    const startsWithQuestion = questionStarters.some((starter) =>
+        new RegExp(`^${starter}\\b`, 'i').test(text.trim())
+    );
+    const missingQuestionMark = startsWithQuestion && !text.includes('?');
+
+    // Combine factors to determine EOT
+    return (
+        endsWithTerminalPunctuation &&
+        !endsWithContinuationPhrase &&
+        !missingQuestionMark &&
+        !endsWithEllipsis
+    );
+}
+
 function timestamp(seconds) {
     const hours = Math.floor(seconds / 3600);
     seconds = seconds - hours * 3600;
@@ -16,6 +86,7 @@ function addChannelToParagraph(paragraph, channel) {
     };
 }
 
+// This is a fallback.
 function jsonScriptFromParagraphs(data, includeTimestamps) {
     // Check if we have valid data to process
     if (!data?.results?.channels || !Array.isArray(data.results.channels)) {
@@ -52,16 +123,32 @@ function jsonScriptFromParagraphs(data, includeTimestamps) {
     });
 
     // Create JSON format
-    const results = joinedParagraphs.map((p) => {
+    const results = joinedParagraphs.map((p, index, arr) => {
         const speaker = speakerId.get(`${p.channel}_${p.speaker}`);
         // Join all sentences in the paragraph
         const content = p.sentences.map((s) => s.text).join(' ');
+
+        // Determine if this is the end of turn based on content analysis
+        const isEndOfTurn = determineEOT(content);
+
+        // If not the end of turn, check if next paragraph has same speaker
+        // If the next paragraph has a different speaker, this IS the end of turn
+        let forcedEndOfTurn = false;
+        if (!isEndOfTurn && index < arr.length - 1) {
+            const nextParagraph = arr[index + 1];
+            const nextSpeaker = speakerId.get(
+                `${nextParagraph.channel}_${nextParagraph.speaker}`
+            );
+
+            // If next speaker is different, force EOT to true
+            forcedEndOfTurn = nextSpeaker !== speaker;
+        }
 
         // Create result object based on whether timestamps should be included
         const result = {
             Role: `Speaker ${speaker}`,
             Content: content,
-            EndOfTurn: true
+            EndOfTurn: isEndOfTurn || forcedEndOfTurn
         };
 
         // Add timestamp only if includeTimestamps is true
@@ -104,18 +191,39 @@ function json(data, includeTimestamps = false) {
     });
 
     // Create JSON format based on utterances
-    const results = utterances.map((u) => {
+    const results = utterances.map((u, index, arr) => {
         // Get the speaker ID from the map, or use "Unknown" if not available
         const speaker =
             u.speaker !== undefined
                 ? speakerId.get(`${u.channel}_${u.speaker}`)
                 : 'Unknown';
 
+        const transcript = u.transcript || '';
+
+        // Determine if this is the end of turn based on content analysis
+        const isEndOfTurn = determineEOT(transcript);
+
+        // If not the end of turn, check if next utterance has same speaker
+        // If the next utterance has a different speaker, this IS the end of turn
+        let forcedEndOfTurn = false;
+        if (!isEndOfTurn && index < arr.length - 1) {
+            const nextUtterance = arr[index + 1];
+            const nextSpeaker =
+                nextUtterance.speaker !== undefined
+                    ? speakerId.get(
+                          `${nextUtterance.channel}_${nextUtterance.speaker}`
+                      )
+                    : 'Unknown';
+
+            // If next speaker is different, force EOT to true
+            forcedEndOfTurn = nextSpeaker !== speaker;
+        }
+
         // Create result object based on whether timestamps should be included
         const result = {
             Role: `Speaker ${speaker}`,
-            Content: u.transcript || '',
-            EndOfTurn: true
+            Content: transcript,
+            EndOfTurn: isEndOfTurn || forcedEndOfTurn
         };
 
         // Add timestamp only if includeTimestamps is true
