@@ -1,6 +1,3 @@
-// Example uses outdated SDK:
-// https://github.com/deepgram-starters/node-transcription/blob/30cd3afca725fa09a0e831c19d5302fea0bc0c84/server.js#L4
-
 // Load environment variables
 require('dotenv').config();
 
@@ -9,7 +6,6 @@ const { createClient } = require('@deepgram/sdk');
 const { PostProcess } = require('./postprocessing.js');
 const fs = require('fs');
 const path = require('path');
-const util = require('util');
 
 // Create Deepgram client
 const apiKey = process.env.DEEPGRAM_API_KEY;
@@ -68,26 +64,27 @@ function jsonString(javascriptValue) {
     return JSON.stringify(javascriptValue, null, 2);
 }
 
-function saveTranscription(filePath, transcription, outputDir) {
+function saveTranscription(
+    filePath,
+    transcription,
+    outputDir,
+    includeTimestamps
+) {
     try {
         const fileName = path.basename(filePath);
 
         const rawPath = path.join(outputDir, `${fileName}.raw.json`);
-        // const postProcessedTextPath = path.join(
-        //     outputDir,
-        //     `${fileName}.post.txt`
-        // );
         const postProcessedJsonPath = path.join(
             outputDir,
             `${fileName}.post.json`
         );
 
         const rawJson = jsonString(transcription);
-        // const postProcessedText = PostProcessing.textScript(transcription);
-        const postProcessedJson = jsonString(PostProcess.json(transcription));
+        const postProcessedJson = jsonString(
+            PostProcess.json(transcription, includeTimestamps)
+        );
 
         fs.writeFileSync(rawPath, rawJson);
-        // fs.writeFileSync(postProcessedTextPath, postProcessedText);
         fs.writeFileSync(postProcessedJsonPath, postProcessedJson);
 
         console.log(`Transcriptions saved to: ${outputDir}`);
@@ -97,7 +94,12 @@ function saveTranscription(filePath, transcription, outputDir) {
     }
 }
 
-async function transcribeFiles(inputDir, outputDir, options = {}) {
+async function transcribeFiles(
+    inputDir,
+    outputDir,
+    options = {},
+    includeTimestamps
+) {
     const filePaths = audioFilePaths(inputDir);
 
     if (filePaths.length === 0) {
@@ -106,12 +108,15 @@ async function transcribeFiles(inputDir, outputDir, options = {}) {
     }
 
     console.log(`Found ${filePaths.length} audio files to process.`);
+    console.log(
+        `Timestamps will be ${includeTimestamps ? 'included' : 'excluded'} in the output.`
+    );
 
     // Process files sequentially to avoid overwhelming the API
     for (const filePath of filePaths) {
         try {
             const result = await transcribeFile(filePath, options);
-            saveTranscription(filePath, result, outputDir);
+            saveTranscription(filePath, result, outputDir, includeTimestamps);
         } catch (error) {
             console.error(`Failed to process ${filePath}:`, error);
             // Continue with next file
@@ -123,18 +128,41 @@ async function transcribeFiles(inputDir, outputDir, options = {}) {
 }
 
 async function main() {
-    // Check command line arguments
+    // Parse command line arguments
     const args = process.argv.slice(2);
+
+    // Check for help flag
+    if (args.includes('--help') || args.includes('-h')) {
+        console.log(`
+Usage: node index.js <inputDir> [outputDir] [options]
+
+Options:
+  --timestamps, -t       Include timestamps in the output (default: false)
+  --help, -h             Show this help message
+        `);
+        process.exit(0);
+    }
+
+    // Check if minimum required arguments are provided
     if (args.length === 0) {
         console.error('Please provide a directory path as an argument');
-        console.error(
-            'Usage: node index.js <directoryPath> <optional: outputPath>'
-        );
+        console.error('Usage: node index.js <inputDir> [outputDir] [options]');
+        console.error('Use --help for more information');
         process.exit(1);
     }
 
-    const inputDir = args[0];
-    const outputDir = args.length > 1 ? args[1] : inputDir;
+    // Parse arguments
+    let inputDir = '';
+    let outputDir = '';
+    let includeTimestamps = false;
+
+    // Parse non-flag arguments (directories)
+    const directories = args.filter((arg) => !arg.startsWith('-'));
+    inputDir = directories[0];
+    outputDir = directories.length > 1 ? directories[1] : inputDir;
+
+    // Parse flags
+    includeTimestamps = args.includes('--timestamps') || args.includes('-t');
 
     // Create output directory if it doesn't exist
     try {
@@ -146,27 +174,26 @@ async function main() {
         process.exit(1);
     }
 
-    // Need to figure out if audio input is single or dual channel. We only need
-    // to diarize if audio is mono. However, we may want to convert all stereo
-    // to mono and diarize all. Currently, our test files are all 8.000 kHz,
-    // mono, 16 bit.
-
     // Smart format is a feature that: auto capitalizes; adds punctuation;
     // formats numbers, currencies, and dates; and removes filler words ("um").
 
     // Utterances generates timestamps for significant pauses in speech,
     // breaking the speech into logical segments.
 
-    // Can manipulate with args later
     const options = {
         diarize: true, // Required for postprocessing.js
         model: 'nova-3',
         smart_format: true,
         utterances: true,
-        language: 'multi' // <- didn't do so hot lol
+        language: 'multi'
     };
 
-    const processed = await transcribeFiles(inputDir, outputDir, options);
+    const processed = await transcribeFiles(
+        inputDir,
+        outputDir,
+        options,
+        includeTimestamps
+    );
 
     if (!processed) {
         console.error('No audio files were found for processing. Exiting.');

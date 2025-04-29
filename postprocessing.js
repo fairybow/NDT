@@ -16,7 +16,7 @@ function addChannelToParagraph(paragraph, channel) {
     };
 }
 
-function jsonScriptFromParagraphs(data) {
+function jsonScriptFromParagraphs(data, includeTimestamps) {
     // Check if we have valid data to process
     if (!data?.results?.channels || !Array.isArray(data.results.channels)) {
         return { results: [] };
@@ -57,18 +57,25 @@ function jsonScriptFromParagraphs(data) {
         // Join all sentences in the paragraph
         const content = p.sentences.map((s) => s.text).join(' ');
 
-        return {
-            Timestamp: timestamp(p.start),
+        // Create result object based on whether timestamps should be included
+        const result = {
             Role: `Speaker ${speaker}`,
             Content: content,
             EndOfTurn: true
         };
+
+        // Add timestamp only if includeTimestamps is true
+        if (includeTimestamps) {
+            result.Timestamp = timestamp(p.start);
+        }
+
+        return result;
     });
 
     return { results };
 }
 
-function json(data) {
+function json(data, includeTimestamps = false) {
     // Check if we have valid data to process
     if (!data?.results) {
         return { results: [] };
@@ -79,7 +86,7 @@ function json(data) {
 
     if (utterances.length === 0) {
         // Fall back to the original paragraph-based processing if no utterances
-        return jsonScriptFromParagraphs(data);
+        return jsonScriptFromParagraphs(data, includeTimestamps);
     }
 
     // Sort utterances by start time (they should already be sorted, but just to be safe)
@@ -104,12 +111,19 @@ function json(data) {
                 ? speakerId.get(`${u.channel}_${u.speaker}`)
                 : 'Unknown';
 
-        return {
-            Timestamp: timestamp(u.start),
+        // Create result object based on whether timestamps should be included
+        const result = {
             Role: `Speaker ${speaker}`,
             Content: u.transcript || '',
             EndOfTurn: true
         };
+
+        // Add timestamp only if includeTimestamps is true
+        if (includeTimestamps) {
+            result.Timestamp = timestamp(u.start);
+        }
+
+        return result;
     });
 
     return { results };
@@ -120,56 +134,3 @@ module.exports = {
         json
     }
 };
-
-/*
-function textScript(data) {
-    // Check if we have valid data to process
-    if (!data?.results?.channels || !Array.isArray(data.results.channels)) {
-        return '';
-    }
-
-    // Combine the paragraphs across channels and sort them by the time they
-    // were spoken
-    const nchannels = data.results.channels.length;
-    let joinedParagraphs = [];
-
-    for (let i = 0; i < nchannels; i++) {
-        const channel = data.results.channels[i];
-        const paragraphs =
-            channel?.alternatives?.[0]?.paragraphs?.paragraphs || [];
-
-        // Add channel info to each paragraph
-        const paragraphsWithChannel = paragraphs.map((p) =>
-            addChannelToParagraph(p, i)
-        );
-        joinedParagraphs = joinedParagraphs.concat(paragraphsWithChannel);
-    }
-
-    // Sort paragraphs by start time
-    joinedParagraphs.sort((a, b) => a.start - b.start);
-
-    // If there are multiple speakers in each channel, give them a unique ID
-    const speakerId = new Map(); // key = "channel_speakerId"
-    joinedParagraphs.forEach((p) => {
-        const key = `${p.channel}_${p.speaker}`;
-        if (!speakerId.has(key)) {
-            speakerId.set(key, speakerId.size);
-        }
-    });
-
-    // Format the paragraphs spoken by each speaker
-    let result = '';
-
-    joinedParagraphs.forEach((p) => {
-        const start = formatTime(p.start);
-        const speaker = speakerId.get(`${p.channel}_${p.speaker}`);
-
-        // Join all sentences in the paragraph
-        const sentences = p.sentences.map((s) => s.text).join(' ');
-
-        result += `${start} Speaker ${speaker}: ${sentences}\n\n`;
-    });
-
-    return result;
-}
-*/
