@@ -233,7 +233,8 @@ Options:
         model: 'nova-3', // Use Deepgram's nova-3 model
         smart_format: true, // Enable smart formatting of text
         utterances: true, // Enable utterance segmentation
-        language: 'multi' // Support multiple languages
+        language: 'multi', // Support multiple languages
+        filler_words: true // A huge EOT cue
     };
 
     // Start the transcription process
