@@ -241,16 +241,19 @@ Options:
         //numerals: true, // Format numbers
         profanity_filter: false,
         //paragraphs: true,
-        filler_words: true, // A huge EOT cue, true = has filler words
-        keyterms: [
-            'uh:2',
-            'um:2',
-            'mhmm:2',
-            'mm-mm:2',
-            'uh-uh:2',
-            'uh-huh:2',
-            'nuh-uh:2'
-        ]
+        filler_words: true // A huge EOT cue, true = has filler words
+
+        // Keyterms won't boost filler word recognition any more than simply adding filler_words: true.
+
+        // keyterms: [
+        //     'uh:2',
+        //     'um:2',
+        //     'mhmm:2',
+        //     'mm-mm:2',
+        //     'uh-uh:2',
+        //     'uh-huh:2',
+        //     'nuh-uh:2'
+        // ]
     };
 
     // I cannot for the life of me get filler words to show.
