@@ -41,6 +41,8 @@ function determineEOT(text) {
         'therefore'
     ];
 
+    /// Potentially add trailing period below, too? (dashes?)
+
     // Check if the text ends with any continuation phrase
     // Using case-insensitive matching and allowing for trailing commas/whitespace
     const endsWithContinuationPhrase = continuationPhrases.some((phrase) =>
