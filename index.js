@@ -229,13 +229,32 @@ Options:
     // Utterances generates timestamps for significant pauses in speech,
     // breaking the speech into logical segments.
     const options = {
-        diarize: true, // Required for speaker identification in postprocessing.js
-        model: 'nova-3', // Use Deepgram's nova-3 model
-        smart_format: true, // Enable smart formatting of text
-        utterances: true, // Enable utterance segmentation
-        language: 'multi', // Support multiple languages
-        filler_words: true // A huge EOT cue
+        diarize: true,
+        model: 'nova-3',
+        smart_format: true, // Should not affect filler words, according to Deepgram's AI assistant
+        utterances: true,
+        language: 'en', // Filler words are only available for English
+
+        // Individual smart format features
+        //punctuate: true,
+        //capitalization: true,
+        //numerals: true, // Format numbers
+        profanity_filter: false,
+        //paragraphs: true,
+        filler_words: true, // A huge EOT cue, true = has filler words
+        keyterms: [
+            'uh:2',
+            'um:2',
+            'mhmm:2',
+            'mm-mm:2',
+            'uh-uh:2',
+            'uh-huh:2',
+            'nuh-uh:2'
+        ]
     };
+
+    // I cannot for the life of me get filler words to show.
+    // https://github.com/orgs/deepgram/discussions/916
 
     // Start the transcription process
     const processed = await transcribeFiles(
